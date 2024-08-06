@@ -16,12 +16,36 @@ chat.addEventListener("submit", function (e) {
 
 async function postNewMsg(user, text) {
   // post to /poll a new message
-  // write code here
+  const data = {
+    user, //same as user: user it is implied already
+    text, // same as above comment
+  }
+
+  const options = {
+    method: "POST",
+    body: JSON.stringify(data),
+    headers: {
+      "Content-Type": "application/json",
+    }
+  }
+  
+  const rest = await fetch("/poll", options);
+  const json = await res.json();
 }
 
 async function getNewMsgs() {
   // poll the server
-  // write code here
+  let json;
+  try {
+    const res = await fetch("/poll")
+    json = await res.json()
+  } catch (e) {
+    //backoff code
+    console.error("polling error", e);
+  }
+  allChat = json.msg;
+  render()
+ // setTimeout(getNewMsgs, INTERVAL);
 }
 
 function render() {
@@ -37,5 +61,15 @@ function render() {
 const template = (user, msg) =>
   `<li class="collection-item"><span class="badge">${user}</span>${msg}</li>`;
 
-// make the first request
-getNewMsgs();
+let timeToMakeNextRequest = 0;
+async function rafTimer(time) { //raf = requestanimationframe
+  if (timeToMakeNextRequest <= time) {
+    await getNewMsgs();
+    timeToMakeNextRequest = time + INTERVAL;
+
+  }
+
+  requestAnimationFrame(rafTimer);
+}
+
+requestAnimationFrame(rafTimer);
