@@ -1,7 +1,7 @@
-import http2 from "http2";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import http2 from "node:http2";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import handler from "serve-handler";
 import nanobuffer from "nanobuffer";
 
@@ -35,6 +35,30 @@ const server = http2.createSecureServer({
  *
  */
 
+server.on("stream", (stream, headers) => {
+  const path = headers[":path"]
+  const method = headers[":method"]
+
+
+  // streams open for every request from the browser
+  if (path === '/msgs' && method === "GET") {
+    // immediately reply with 200 OK and the encoding
+    console.log("connected a stream" + stream.id) //same id can be reused as well 
+    stream.respond({
+      ":status" : 200,
+      "content-type": "text/plain; charset=utf-8", //we cant do app/json bcs its a lot of json bundled together
+    })
+    stream.write(JSON.stringify({ msg: getMsgs() }))
+    connections.push(stream)
+
+    stream.on("close", () => {
+      console.log("disconnected " + stream.id)
+      connections = connections.filter(s => s !== stream)
+    })
+  }
+})
+
+
 server.on("request", async (req, res) => {
   const path = req.headers[":path"];
   const method = req.headers[":method"];
@@ -53,12 +77,17 @@ server.on("request", async (req, res) => {
     const data = Buffer.concat(buffers).toString();
     const { user, text } = JSON.parse(data);
 
-    /*
-     *
-     * some code goes here
-     *
-     */
-  }
+    msg.push({
+      user,
+      text,
+      time: Date.now(),
+  })
+
+  res.end()
+  connections.forEach(stream => {
+    stream.write(JSON.stringify({ msg: getMsgs() }))
+  })
+}
 });
 
 // start listening

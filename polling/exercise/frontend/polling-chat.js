@@ -39,13 +39,23 @@ async function getNewMsgs() {
   try {
     const res = await fetch("/poll")
     json = await res.json()
+
+    if (res.status >= 400) {
+      throw new Error("Request did not succeed: " + res.status);
+    }
+
+    allChat = json.msg;
+    render()
+    // setTimeout(getNewMsgs, INTERVAL);
+
+    failedTries = 0;
+
   } catch (e) {
     //backoff code
     console.error("polling error", e);
+    failedTries++;
   }
-  allChat = json.msg;
-  render()
- // setTimeout(getNewMsgs, INTERVAL);
+  
 }
 
 function render() {
@@ -61,15 +71,15 @@ function render() {
 const template = (user, msg) =>
   `<li class="collection-item"><span class="badge">${user}</span>${msg}</li>`;
 
-let timeToMakeNextRequest = 0;
+
+const BACKOFF = 5000; //5seconds
+let failedTries = 0;
+let timeToMakeNextRequest = 0; //0 because we wanna fetch newMsgs immediately when page loads
 async function rafTimer(time) { //raf = requestanimationframe
-  if (timeToMakeNextRequest <= time) {
+  if (timeToMakeNextRequest <= time /*time >= timeToMakeNewRequest*/) {
     await getNewMsgs();
-    timeToMakeNextRequest = time + INTERVAL;
-
+    timeToMakeNextRequest = time + INTERVAL + (failedTries * BACKOFF);
   }
-
   requestAnimationFrame(rafTimer);
 }
-
-requestAnimationFrame(rafTimer);
+requestAnimationFrame(rafTimer); //start the loop
